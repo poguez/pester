@@ -6,36 +6,41 @@
 # Exit if any subcommand fails
 set -e
 
-# Set up Ruby dependencies via Bundler
-gem list bundler --installed > /dev/null || gem install bundler
-bundle install
+if [ -z "$1" ]; then
+  printf "You must provide the name of your Heroku app."
+  exit 1
+else
+  # Set up Ruby dependencies via Bundler
+  gem list bundler --installed > /dev/null || gem install bundler
+  bundle install
 
-# Set up configurable environment variables
-if [ ! -f .env ]; then
-  cp .sample.env .env
-fi
-
-# Set up database and add any development seed data
-bundle exec rake db:setup dev:prime
-
-# Add binstubs to PATH via export PATH=".git/safe/../../bin:$PATH" in ~/.zshenv
-mkdir -p .git/safe
-
-# Pick a port for Foreman
-if ! grep --quiet --no-messages --fixed-strings 'port' .foreman; then
-  printf 'port: 8000\n' >> .foreman
-fi
-
-if ! command -v foreman > /dev/null; then
-  printf 'Foreman is not installed.\n'
-  printf 'See https://github.com/ddollar/foreman for install instructions.\n'
-fi
-
-if [ -z "$CI" ]; then
-  if git config --local remote.production.fetch; then
-    git remote remove production
+  # Set up configurable environment variables
+  if [ ! -f .env ]; then
+    cp .sample.env .env
   fi
 
-  git remote add production git@heroku.com:tbot-pester.git
-  heroku join --app tbot-pester
+  # Set up database and add any development seed data
+  bundle exec rake db:setup dev:prime
+
+  # Add binstubs to PATH via export PATH=".git/safe/../../bin:$PATH" in ~/.zshenv
+  mkdir -p .git/safe
+
+  # Pick a port for Foreman
+  if ! grep --quiet --no-messages --fixed-strings 'port' .foreman; then
+    printf 'port: 8000\n' >> .foreman
+  fi
+
+  if ! command -v foreman > /dev/null; then
+    printf 'Foreman is not installed.\n'
+    printf 'See https://github.com/ddollar/foreman for install instructions.\n'
+  fi
+
+  if [ -z "$CI" ]; then
+    if git config --local remote.production.fetch; then
+      git remote remove production
+    fi
+
+    git remote add production git@heroku.com:"$1".git
+    heroku join --app "$1"
+  fi
 fi
